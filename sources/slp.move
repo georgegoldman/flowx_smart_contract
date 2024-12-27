@@ -5,6 +5,10 @@ module flowx_smart_contract::stable_liquidity_pool {
     use sui::tx_context::{Self, TxContext};
     use sui::object::{Self, UID};
 
+    public struct Token<T>{
+        id: u64,
+    }
+
     // Struct to represent a stablecoin liquidity pool
     public struct StableLiquidityPool<X, Y> has key, store {
         id: UID,
