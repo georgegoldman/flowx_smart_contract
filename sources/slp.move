@@ -5,8 +5,36 @@ module flowx_smart_contract::stable_liquidity_pool {
     use sui::tx_context::{Self, TxContext};
     use sui::object::{Self, UID};
 
-    public struct Token<T>{
-        id: u64,
+    // create types of assets we have
+    public struct PegRatio {
+        x: u8,
+        y: u8
+    }
+
+    public struct Enum{
+        name: std::string::String,
+        value: vector<std::string::String>
+    }
+
+    public struct StableCoin{
+        peg_ratio: PegRatio,
+        audit_frequency: Enum
+    }
+    public struct Fiat{}
+    public struct Crypto{}
+
+    public struct Assets<phantom T> has key, store {
+        id: UID,
+        symbol: std::string::String,
+        name: std::string::String,
+        is_stablecoin: bool,
+        contract_address: address,
+        total_supply: u128,
+        underlying_currency: std::string::String,
+        peg_ratio: u8,
+        audit_frequency: std::string::String,
+
+
     }
 
     // Struct to represent a stablecoin liquidity pool
