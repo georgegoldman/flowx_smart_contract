@@ -16,24 +16,30 @@ module flowx_smart_contract::stable_liquidity_pool {
         value: vector<std::string::String>
     }
 
-    public struct StableCoin{
-        peg_ratio: PegRatio,
-        audit_frequency: Enum
+    public struct Fiat{
+        issuing_country: std::string::String, // The country responsible for issuing the fiat currency.
+        central_bank: std::string::String, // Name of the central bank regulating the fiat currency.
+        is_reserve_currency: bool // Indicates whether the fiat currency is a global reserve currency (e.g., USD).
     }
-    public struct Fiat{}
+
+    public struct StableCoin{
+        peg_to: std::string::String, // The asset the stablecoin is pegged to (e.g., USD, Gold).
+        peg_ratio: PegRatio, // The ratio of the stablecoin to its pegged asset (e.g., 1:1 for USD).
+        collateral_type: Enum, // The type of reserves backing the stablecoin (e.g., cash, treasury bills).
+        issuer: address, // The address or identity of the issuer of the stablecoin.
+        audit_frequency: Enum, // Frequency of audits for reserves (e.g., monthly, quarterly).
+        redemption_mechanism: Enum // Details of how users can redeem stablecoins for the pegged asset (e.g., fiat).
+
+    }
+
     public struct Crypto{}
 
     public struct Assets<phantom T> has key, store {
         id: UID,
         symbol: std::string::String,
         name: std::string::String,
-        is_stablecoin: bool,
-        contract_address: address,
-        total_supply: u128,
-        underlying_currency: std::string::String,
-        peg_ratio: u8,
-        audit_frequency: std::string::String,
-
+        decimals: u8,
+        total_supply: u128
 
     }
 
