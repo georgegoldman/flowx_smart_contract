@@ -4,8 +4,11 @@ use sui::balance::{Self, Balance};
 use sui::transfer;
 use sui::tx_context::{Self, TxContext};
 use sui::object::{Self, UID};
+use sui::table::{Self, Table};
 
 // create types of assets we have
+
+const ERROR_LENGTH_MISMATCH: u64 = 1001;
 
 
 public struct Enum{
@@ -42,19 +45,49 @@ public struct Asset<phantom T> has key, store {
     symbol: std::string::String,
     name: std::string::String,
     decimals: u8,
-    total_supply: u128
+    total_supply: u128,
+    coin: Coin<T>
 
 }
 
 // Struct to represent a stablecoin liquidity pool
-public struct StableLiquidityPool<T, U> has key, store {
+public struct LiquidityPool<T, U> has key, store {
     id: UID,
-    token_pairs: vector<Asset<T>>, // List of token pairs available for swaps in the pool
-    stablecoin: Asset<U>, //The stablecoin used as the base for liquidity
+    coins: Table<std::string::String, Balance<Coin<T>>>, // List of token pairs available for swaps in the pool
     reserves: vector<u128>, // Amount of liquidity available for each asset in the pool (e.g., USD, Naira, SUI).
     swap_fee: u64, // The fee percentage taken from each swap (e.g., 0.3%).
     amplification_factor: u64, // The amplification factor for stablecoins to adjust liquidity depth in the pool (e.g., 2x).
+    total_lp_tokens: u128,
     liquidity_provider: address, // Address of the liquidity provider who adds liquidity to the pool.
 }
 
+public fun create_lp<T, U>(
+    ctx: &mut TxContext,
+    creator: &signer,
+    coins: vector<Asset<T>>,
+    reserves: vector<u128>,
+    swap_fee: u64,
+    amplification_factor: u64,
+    liquidity_provider: address
+){
+    // Ensure that the pool ID is unique and that there are no duplicate token pairs
+    assert!(vector::length(&coins) == vector::length(&reserves), ERROR_LENGTH_MISMATCH);
+
+    // Initialize the LiquidityPool struct
+    let pool = LiquidityPool<T, U>{
+        id: object::new(ctx),
+        token_pairs,
+        reserves,
+        swap_fee,
+        amplification_factor,
+        total_lp_tokens: 0,
+        liquidity_provider,
+    };
+
+    // Store the liquidity pool under the creator's account
+    let creator = ctx.sender();
+
+    
+
+}
    
