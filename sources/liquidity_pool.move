@@ -5,6 +5,7 @@ use sui::transfer;
 use sui::tx_context::{Self, TxContext};
 use sui::object::{Self, UID};
 use sui::table::{Self, Table};
+use sui::vec_map::{Self, VecMap};
 
 // create types of assets we have
 
@@ -53,41 +54,44 @@ public struct Asset<phantom T> has key, store {
 // Struct to represent a stablecoin liquidity pool
 public struct LiquidityPool<T, U> has key, store {
     id: UID,
-    coins: Table<std::string::String, Balance<Coin<T>>>, // List of token pairs available for swaps in the pool
-    reserves: vector<u128>, // Amount of liquidity available for each asset in the pool (e.g., USD, Naira, SUI).
-    swap_fee: u64, // The fee percentage taken from each swap (e.g., 0.3%).
+    token_pairs: VecMap<std::string::String, Asset<T>>, // List of token pairs available for swaps in the pool
+    reserves: VecMap<std::string::String, u128>, // Amount of liquidity available for each asset in the pool (e.g., USD, Naira, SUI).
+    rates: VecMap<std::string::String, u128>,
+    swap_fee: VecMap<std::string::String, u128>, // The fee percentage taken from each swap (e.g., 0.3%).
     amplification_factor: u64, // The amplification factor for stablecoins to adjust liquidity depth in the pool (e.g., 2x).
     total_lp_tokens: u128,
     liquidity_provider: address, // Address of the liquidity provider who adds liquidity to the pool.
 }
 
 public fun create_lp<T, U>(
-    ctx: &mut TxContext,
-    creator: &signer,
-    coins: vector<Asset<T>>,
-    reserves: vector<u128>,
-    swap_fee: u64,
+    token_pairs: VecMap<std::string::String, Asset<T>>,
+    reserves: VecMap<std::string::String, u128>,
+    rates: VecMap<std::string::String, u128>,
+    swap_fee: VecMap<std::string::String, u128>,
     amplification_factor: u64,
-    liquidity_provider: address
+    ctx: &mut TxContext,
 ){
     // Ensure that the pool ID is unique and that there are no duplicate token pairs
-    assert!(vector::length(&coins) == vector::length(&reserves), ERROR_LENGTH_MISMATCH);
+    assert!(vec_map::size(&token_pairs) > 0, 1); // Pool must have at least one token pair
+    assert!(vec_map::size(&reserves) ==  vec_map::size(&token_pairs), ERROR_LENGTH_MISMATCH); // Reserves should match token pairs length
 
     // Initialize the LiquidityPool struct
     let pool = LiquidityPool<T, U>{
         id: object::new(ctx),
         token_pairs,
+        rates,
         reserves,
         swap_fee,
         amplification_factor,
         total_lp_tokens: 0,
-        liquidity_provider,
+        liquidity_provider: tx_context::sender(ctx)
     };
 
-    // Store the liquidity pool under the creator's account
-    let creator = ctx.sender();
-
-    
+    let i = 0;
+    while (i < vector::length(&coins)) {
+        let coin = vector::borrow(&coins, i);
+        let type_name = coin.coin
+    }    
 
 }
    
