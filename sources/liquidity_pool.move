@@ -64,34 +64,93 @@ public struct LiquidityPool<T, U> has key, store {
 }
 
 public fun create_lp<T, U>(
-    token_pairs: VecMap<std::string::String, Asset<T>>,
-    reserves: VecMap<std::string::String, u128>,
-    rates: VecMap<std::string::String, u128>,
-    swap_fee: VecMap<std::string::String, u128>,
+    assets :  vector<Asset<T>>,
+    // reserves: vector<u128>,
+    initial_rates: vector<u128>,
+    swap_fee: vector<u128>,
     amplification_factor: u64,
     ctx: &mut TxContext,
-){
+    symbols: vector<std::string::String>
+): LiquidityPool<T, U>{
     // Ensure that the pool ID is unique and that there are no duplicate token pairs
-    assert!(vec_map::size(&token_pairs) > 0, 1); // Pool must have at least one token pair
-    assert!(vec_map::size(&reserves) ==  vec_map::size(&token_pairs), ERROR_LENGTH_MISMATCH); // Reserves should match token pairs length
+    assert!(vector::length(&assets) > 0, 1); // Pool must have at least one token pair
+    // assert!(vector::length(&reserves) ==  vector::length(&token_pairs), ERROR_LENGTH_MISMATCH); // Reserves should match token pairs length
 
-    // Initialize the LiquidityPool struct
-    let pool = LiquidityPool<T, U>{
-        id: object::new(ctx),
-        token_pairs,
-        rates,
-        reserves,
-        swap_fee,
-        amplification_factor,
-        total_lp_tokens: 0,
-        liquidity_provider: tx_context::sender(ctx)
-    };
+    // Create empty VecMaps
+        let token_pairs = vec_map::empty();
+        // let reserves = vec_map::empty();
+        let rates = vec_map::empty();
+        // let fees = vec_map::empty();
 
     let i = 0;
-    while (i < vector::length(&coins)) {
-        let coin = vector::borrow(&coins, i);
-        let type_name = coin.coin
-    }    
 
+    while (i < vec_map::size(&token_pairs)){
+        let asset = vector::pop_back( &mut assets, );
+        let key_value = asset.id.to_address().to_string();
+        let rate  = *vector::borrow(&initial_rates, i);
+        let symbol = *vector::borrow(&symbols, i);
+        let fee = *vector::borrow(&swap_fee, i);
+        let coin_value = coin::value(&asset.coin);
+        let split_coin = coin::split( &mut asset.coin, coin_value, ctx);
+
+        let asset = create_stablecoin_assest<T>(
+            b"peg_to".to_string(), 
+            1, 
+            b"collateral_type".to_string(), 
+            tx_context::sender(ctx), 
+            b"audit_frequency".to_string(), 
+            b"Cash Equivalents".to_string(), 
+            ctx, 
+            b"USDT".to_string(), 
+            b"USD".to_string(), 
+            6, 
+            100000000000,
+            split_coin
+            );
+
+        // insert  the moved assets into the map
+        vec_map::insert(  &mut token_pairs, key_value, asset);
+        // vec_map::insert(&mut pool.reserves, key_value, coin::value(coin.coin<T>));
+        vec_map::insert( &mut rates, key_value, rate);
+
+        
+    };
+
+    pool
+}
+
+fun create_stablecoin_assest<T>(
+    peg_to: std::string::String,
+    peg_ratio: u64,
+    collateral_type: std::string::String,
+    issuer: address,
+    audit_frequency: std::string::String,
+    redemption_mechanism: std::string::String,
+    ctx: &mut TxContext,
+    symbol: std::string::String,
+    name: std::string::String,
+    decimals: u8,
+    total_supply: u128,
+    coin: Coin<T>,
+) : Asset<T> {
+    let stable_info = StableCoin{
+        peg_to,
+        peg_ratio,
+        collateral_type,
+        issuer,
+        audit_frequency,
+        redemption_mechanism,
+        
+    };
+
+    // Create the Asset with stablecoin info
+    Asset<T> {
+        id: object::new(ctx),
+        symbol,
+        name,
+        decimals,
+        total_supply,
+        coin,
+    }
 }
    
