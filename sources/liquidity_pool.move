@@ -47,7 +47,7 @@ public struct Asset<phantom T> has key, store {
     name: std::string::String,
     decimals: u8,
     total_supply: u128,
-    coin: Balance<T>
+    coin: Coin<T>
 
 }
 
@@ -64,55 +64,58 @@ public struct LiquidityPool<phantom T> has key, store {
 }
 
 public fun create_lp<T>(
-    assets :  vector<Asset<T>>,
-    initial_rates: vector<u128>,
-    swap_fee: vector<u128>,
-    amp_factor: u64,
     ctx: &mut TxContext,
-    symbols: vector<std::string::String>
+        coins: &mut vector<Coin<T>>,
+        initial_rates: vector<u128>,
+        initial_fees: vector<u128>,
+        amp_factor: u64,
+        symbols: vector<std::string::String>
 ){
     // Ensure that the pool ID is unique and that there are no duplicate token pairs
-    assert!(vector::length(&assets) > 0, 1); // Pool must have at least one token pair
+    assert!(vector::length(coins) > 0, 1); // Pool must have at least one token pair
 
     // Create empty VecMaps
-        let token_pairs = vec_map::empty();
-        let reserves = vec_map::empty();
-        let rates = vec_map::empty();
-        let fees = vec_map::empty();
+    let mut token_pairs = vec_map::empty();
+    let mut reserves = vec_map::empty();
+    let mut rates = vec_map::empty();
+    let mut fees = vec_map::empty();
 
-    let i = 0;
+    
+
+    let mut i = 0;
 
     while (i < vec_map::size(&token_pairs)){
-        let asset = vector::pop_back( &mut assets, );
-        let key_value = asset.id.to_address().to_string();
-        let rate  = *vector::borrow(&initial_rates, i);
-        let symbol = *vector::borrow(&symbols, i);
-        let fee = *vector::borrow(&swap_fee, i);
-        let coin_value = balance::value(&asset.coin);
-        let split_coin = balance::split( &mut asset.coin, coin_value);
+    let  coin = vector::pop_back(coins);
+    let symbol = *vector::borrow(&symbols, i);
+    let rate = *vector::borrow(&initial_rates, i);
+    let fee = *vector::borrow(&initial_fees, i);
 
-        let asset = create_stablecoin_assest<T>(
-            b"peg_to".to_string(), 
-            1, 
-            b"collateral_type".to_string(), 
-            tx_context::sender(ctx), 
-            b"audit_frequency".to_string(), 
-            b"Cash Equivalents".to_string(), 
-            ctx, 
-            b"USDT".to_string(), 
-            b"USD".to_string(), 
-            6, 
-            100000000000,
-            split_coin
-            );
+    let coin_value = coin::value(&coin);
 
-        // insert  the moved assets into the map
-        vec_map::insert(  &mut token_pairs, symbol, asset);
-        vec_map::insert(&mut reserves, symbol, balance::value(&split_coin));
-        vec_map::insert( &mut rates, symbol, rate);
-        vec_map::insert(&mut fees, symbol, fee);
+    let asset = create_stablecoin_assest<T>(
+        b"peg_to".to_string(),
+        1, 
+        b"collateral_type".to_string(),
+        tx_context::sender(ctx),
+        b"audit_frequency".to_string(),
+        b"Cash Equivalents".to_string(), 
+        ctx, 
+        b"USDT".to_string(), 
+        b"USD".to_string(), 
+        6, 
+        100000000000,
+        coin
+        );
 
-        i = i + 1;
+
+
+    // Add to VecMaps
+    vec_map::insert(&mut token_pairs, symbol, asset);
+    vec_map::insert(&mut reserves, symbol, coin_value);
+    vec_map::insert(&mut rates, symbol, rate);
+    vec_map::insert(&mut fees, symbol, fee);
+
+    i = i + 1;
         
     };
 
@@ -142,20 +145,11 @@ fun create_stablecoin_assest<T>(
     name: std::string::String,
     decimals: u8,
     total_supply: u128,
-    coin: Balance<T>,
-) : Asset<T> {
-    let stable_info = StableCoin{
-        peg_to,
-        peg_ratio,
-        collateral_type,
-        issuer,
-        audit_frequency,
-        redemption_mechanism,
-        
-    };
+    coin: Coin<T>,
+) : Asset<T>  {
 
     // Create the Asset with stablecoin info
-    Asset<T> {
+     Asset<T> {
         id: object::new(ctx),
         symbol,
         name,
@@ -163,5 +157,6 @@ fun create_stablecoin_assest<T>(
         total_supply,
         coin,
     }
+
 }
    
