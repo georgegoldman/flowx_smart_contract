@@ -1,21 +1,13 @@
+#[allow(unused_field)]
 module flowx_smart_contract::liquidity_pool;
-use sui::coin::{Self, Coin, TreasuryCap};
+
 use sui::balance::{Self, Balance};
-use sui::transfer;
-use sui::tx_context::{Self, TxContext};
-use sui::object::{Self, UID};
-use sui::table::{Self, Table};
 use sui::vec_map::{Self, VecMap};
 
 // create types of assets we have
 
 const ERROR_LENGTH_MISMATCH: u64 = 1001;
 
-
-public struct Enum{
-    name: std::string::String,
-    value: vector<std::string::String>
-}
 
 public struct Fiat{
     issuing_country: std::string::String, // The country responsible for issuing the fiat currency.
@@ -47,7 +39,7 @@ public struct Asset<phantom T> has key, store {
     name: std::string::String,
     decimals: u8,
     total_supply: u128,
-    coin: Coin<T>
+    coin: Balance<T>
 
 }
 
@@ -63,16 +55,17 @@ public struct LiquidityPool<phantom T> has key, store {
     liquidity_provider: address, // Address of the liquidity provider who adds liquidity to the pool.
 }
 
+#[allow(lint(self_transfer))]
 public fun create_lp<T>(
     ctx: &mut TxContext,
-        coins: &mut vector<Coin<T>>,
+        coins: &mut vector<Balance<T>>,
         initial_rates: vector<u128>,
         initial_fees: vector<u128>,
         amp_factor: u64,
         symbols: vector<std::string::String>
-){
+): address {
     // Ensure that the pool ID is unique and that there are no duplicate token pairs
-    assert!(vector::length(coins) > 0, 1); // Pool must have at least one token pair
+    assert!(vector::length(coins) > 0, ERROR_LENGTH_MISMATCH); // Pool must have at least one token pair
 
     // Create empty VecMaps
     let mut token_pairs = vec_map::empty();
@@ -90,7 +83,7 @@ public fun create_lp<T>(
     let rate = *vector::borrow(&initial_rates, i);
     let fee = *vector::borrow(&initial_fees, i);
 
-    let coin_value = coin::value(&coin);
+    let coin_value = balance::value(&coin);
 
     let asset = create_stablecoin_assest<T>(
         b"peg_to".to_string(),
@@ -129,10 +122,14 @@ public fun create_lp<T>(
         total_lp_tokens: 0,
         liquidity_provider: tx_context::sender(ctx)
     };
-
+    
     sui::transfer::transfer(pool, tx_context::sender(ctx));
+
+    tx_context::sender(ctx)
+    
 }
 
+#[allow(unused_variable)]
 fun create_stablecoin_assest<T>(
     peg_to: std::string::String,
     peg_ratio: u64,
@@ -145,7 +142,7 @@ fun create_stablecoin_assest<T>(
     name: std::string::String,
     decimals: u8,
     total_supply: u128,
-    coin: Coin<T>,
+    coin: Balance<T>,
 ) : Asset<T>  {
 
     // Create the Asset with stablecoin info
