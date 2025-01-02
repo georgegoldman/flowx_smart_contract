@@ -9,6 +9,7 @@ use sui::vec_map::{Self, VecMap};
 const ERROR_LENGTH_MISMATCH: u64 = 1001;
 
 // Constants for error handling
+#[allow(unused_const)]
 const ERROR_INSUFFICIENT_BALANCE: u64 = 1003;
 const ERROR_ASSET_NOT_FOUND: u64 = 1003;
 const ERROR_UNAUTHORIZED: u64 = 1004;
