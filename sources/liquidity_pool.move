@@ -157,3 +157,48 @@ fun create_stablecoin_assest<T>(
 
 }
    
+public fun swap<T>(
+    _ctx: &mut TxContext,
+    pool: &mut LiquidityPool<T>,
+    from_token: std::string::String,
+    to_token: std::string::String,
+    amount_in: u64
+): u64 {
+    // Ensure tokens are present in the pool
+    assert!(
+        vec_map::contains(&pool.token_pairs, &from_token) && vec_map::contains(&pool.token_pairs, &to_token),
+        ERROR_LENGTH_MISMATCH
+    );
+
+    // Get reserves of the tokens
+    let from_reserve = *vec_map::get(&pool.reserves, &from_token);
+    let to_reserve = *vec_map::get(&pool.reserves, &to_token);
+
+    // Get swap fee
+    let swap_fee = vec_map::get(&pool.swap_fee, &from_token);
+
+    // Apply swap fee (fee is deducted from the input amount)
+    let amount_in_after_fee = (amount_in * (10000 - (*swap_fee as u64)))/10000;
+
+    // Calculate the amount of `token` to be given (using constant product formula)
+    let amount_out: u64 = (amount_in_after_fee * to_reserve)/ (from_reserve + amount_in_after_fee);
+
+    // Ensure enough liquidity is available
+    assert!(to_reserve >= amount_out, ERROR_LENGTH_MISMATCH);
+
+    // Update reserves
+    vec_map::insert(&mut pool.reserves, from_token, from_reserve + amount_in);
+    vec_map::insert(&mut pool.reserves, to_token, to_reserve - amount_out);
+
+    // First handle the withdrawal
+    {
+        let to_asset = vec_map::get_mut(&mut pool.token_pairs, &to_token);
+        let withdrawn_balance = balance::split(&mut to_asset.coin, amount_out);
+        
+        // Now handle the deposit in a separate scope
+        let from_asset = vec_map::get_mut(&mut pool.token_pairs, &from_token);
+        balance::join(&mut from_asset.coin, withdrawn_balance);
+    };
+
+    amount_out
+}
