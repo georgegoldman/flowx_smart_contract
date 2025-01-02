@@ -8,6 +8,11 @@ use sui::vec_map::{Self, VecMap};
 
 const ERROR_LENGTH_MISMATCH: u64 = 1001;
 
+// Constants for error handling
+const ERROR_INSUFFICIENT_BALANCE: u64 = 1003;
+const ERROR_ASSET_NOT_FOUND: u64 = 1003;
+const ERROR_UNAUTHORIZED: u64 = 1004;
+
 
 public struct Fiat{
     issuing_country: std::string::String, // The country responsible for issuing the fiat currency.
@@ -201,4 +206,63 @@ public fun swap<T>(
     };
 
     amount_out
+}
+
+public fun add_asset<T>(
+    pool: &mut LiquidityPool<T>,
+    ctx: &mut TxContext,
+    symbol: std::string::String,
+    name: std::string::String,
+    decimals: u8,
+    initial_balance: Balance<T>,
+    initial_rate: u128,
+    swap_fee: u128
+){
+    // Only liquidity provider can add assets
+    assert!(pool.liquidity_provider == tx_context::sender(ctx), ERROR_UNAUTHORIZED);
+    
+    // Ensure asset doesn't already exist
+    assert!(!vec_map::contains(&pool.token_pairs, &symbol), ERROR_ASSET_NOT_FOUND);
+
+    let balance_amount = balance::value(&initial_balance);
+
+    // create new assets
+    let asset = Asset<T> {
+        id: object::new(ctx),
+        symbol: symbol,
+        name: name,
+        decimals: decimals,
+        total_supply: (balance_amount as u128),
+        coin: initial_balance
+    };
+
+    // Add to pool's maps
+    vec_map::insert(&mut pool.token_pairs, symbol, asset);
+    vec_map::insert(&mut pool.reserves, symbol, balance_amount);
+    vec_map::insert(&mut pool.rates, symbol, initial_rate);
+    vec_map::insert(&mut pool.swap_fee, symbol, swap_fee);
+}
+
+public fun remove_asset<T>(
+    pool: &mut LiquidityPool<T>,
+    ctx: &mut TxContext,
+    symbol: std::string::String
+): Balance<T> {
+    // Only liquidity provider can remove assets
+    assert!(pool.liquidity_provider == tx_context::sender(ctx), ERROR_UNAUTHORIZED);
+
+    // ensure asset exist
+    assert!(vec_map::contains(&pool.token_pairs,&symbol), ERROR_ASSET_NOT_FOUND);
+
+    // Remove asset from all maps
+    let (_, asset) = vec_map::remove(&mut pool.token_pairs, &symbol);
+    vec_map::remove(&mut pool.reserves, &symbol);
+    vec_map::remove(&mut pool.swap_fee, &symbol);
+    vec_map::remove(&mut pool.rates, &symbol);
+
+    // Extract balance from asset
+    let Asset { id, symbol: _, name: _, decimals: _, total_supply: _, coin } = asset;
+    object::delete(id);
+
+    coin
 }
