@@ -129,7 +129,7 @@ public entry fun transfer_nft(nft: NFT, recipient: address){
 }
 
 /// Burns (deletes) an NFT
-public entry fun burn(nft: NFT){ 
+public entry fun burn_nft(nft: NFT){ 
     let NFT {id,  collection: _, token_id: _, metadata: _, owner: _} = nft;
     object::delete(id);
 }
