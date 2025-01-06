@@ -5,7 +5,6 @@ use sui::test_scenario::{Self, Scenario};
 use sui::coin::{Self, Coin};
 use sui::test_utils::assert_eq;
 use flowx_smart_contract::liquidity_pool::{Self, LiquidityPool};
-use sui::balance;
 
 // Test coin type
 public struct USDT has drop {}
@@ -57,15 +56,18 @@ fun test_create_lp(){
     test_scenario::end(scenario);
 }
 
-// fun consume_vector<T>(v: &mut vector<T>) {
-//     while(!vector::is_empty(v)){
-//         let element = vector::pop_back(v);
-//         consume_element(element)
-//     }
-// }
+#[test]
+fun test_swap(){
+    let mut scenario = setup();
+    let test = &mut scenario;
 
-// // Example function that consumes the element
-// fun consume_element<T>(element: T) {
-//     // Ensure the element is fully consumed
-//     let _ = element;
-// }
+    // Setup initial pool
+    test_scenario::next_tx(test, ADMIN);
+    {
+        // get ctx first 
+        let ctx = test_scenario::ctx(test);
+        // Create initial pool with USDT and USDC
+        let coins = vector::empty();
+        let initial_coin = coin::mint_for_testing<USDT>(2000000, ctx);
+    }
+}

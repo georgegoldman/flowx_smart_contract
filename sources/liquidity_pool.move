@@ -267,3 +267,7 @@ public fun remove_asset<T>(
 
     coin
 }
+
+public fun contain_asset<T>(pool: &LiquidityPool<T>, symbol: std::string::String): bool {
+    vec_map::contains(&pool.token_pairs, &symbol)
+}
