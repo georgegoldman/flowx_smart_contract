@@ -3,7 +3,7 @@ module flowx_smart_contract::liquidity_pool_tests;
 
 use sui::test_scenario::{Self, Scenario};
 use sui::coin;
-use sui::balance;
+use sui::balance::{Self, Balance};
 use sui::test_utils::assert_eq;
 use flowx_smart_contract::liquidity_pool::{Self, LiquidityPool};
 
@@ -50,7 +50,8 @@ fun test_create_lp(){
         
         // verify the owner is set correctly
         assert_eq(lp_owner, ADMIN);
-        vector::destroy_empty(coins);
+        //clean up any remaining coins if needed
+        consume_vector(coins, ctx);
         
     };
     
@@ -86,7 +87,7 @@ fun test_swap(){
             symbols
             );
 
-            coins.destroy_empty();
+            consume_vector(coins, ctx);
 
     };
     // Test adding new asset
@@ -141,7 +142,7 @@ fun test_remove_asset(){
             2,
             symbols
         );
-        coins.destroy_empty();
+        consume_vector(coins, ctx);
     };
     // Add asset to remove later
     test_scenario::next_tx(test, ADMIN);
@@ -218,7 +219,7 @@ fun test_unauthorized_add_asset(){
                 symbols
             );
 
-        coins.destroy_empty();
+        consume_vector(coins, ctx);
     };
     // Try to add asset as non-admin user (should fail)
     test_scenario::next_tx(test,    ADMIN);
@@ -242,4 +243,13 @@ fun test_unauthorized_add_asset(){
         test_scenario::return_shared(pool);
     };
     test_scenario::end(scenario);
+}
+
+fun consume_vector<T>(mut v:  vector<Balance<T>>, ctx: &mut TxContext) {
+    while (!vector::is_empty(&v)){
+        let balance = vector::pop_back(&mut v);
+        let coin = coin::from_balance(balance, ctx);
+        coin::burn_for_testing(coin);
+    };
+    vector::destroy_empty(v);
 }
