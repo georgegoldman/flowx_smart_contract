@@ -8,6 +8,8 @@ use sui::display;
 #[allow(unused_const)]
 const ERROR_UNAUTHORIZED: u64 = 1004;
 const ERROR_COLLECTION_NOT_FOUND: u64 = 1005;
+const E_NOT_OWNER: u64 = 1;
+const E_INVALID_RECIPIENT: u64 = 2;
 
 /// Capability for the factory owner
 public struct FactoryAdmin has key {
@@ -124,9 +126,27 @@ public entry fun mint_nft(
 
 /// Transfers NFT ownership
 #[allow(lint(custom_state_change))]
-public entry fun transfer_nft(nft: NFT, recipient: address){
-    transfer::transfer(nft, recipient);
+public entry fun transfer_nft(nft: NFT, recipient: address, ctx: &mut TxContext){
+    // verify the sender is the current owner
+    let sender = tx_context::sender(ctx);
+    assert!(sender == nft.owner, E_NOT_OWNER);
+
+    // Verify recipient is valid
+    assert!(recipient != @0x0, E_INVALID_RECIPIENT);
+
+    // update the owner field
+    let mut nft_to_mut =  nft;
+    update_nft_owner_field(&mut nft_to_mut, recipient);
+
+    // perform transfer
+    transfer::public_transfer(nft_to_mut, recipient);
 }
+
+// update the owner field
+fun update_nft_owner_field(nft: &mut NFT, recipient: address){
+    nft.owner = recipient;
+}
+
 
 /// Burns (deletes) an NFT
 public entry fun burn_nft(nft: NFT){ 

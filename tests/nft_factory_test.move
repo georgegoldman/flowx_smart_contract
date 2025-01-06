@@ -1,9 +1,8 @@
 #[test_only]
 module flowx_smart_contract::nft_factory_tests;
 
-use sui::test_scenario::{Self, Scenario};
-use flowx_smart_contract::nft_factory::{Self, Collection, NFT, FactoryAdmin, NFT_FACTORY};
-use sui::test_utils;
+use sui::test_scenario;
+use flowx_smart_contract::nft_factory::{Self, Collection, NFT, FactoryAdmin};
 
 // test addresses
 const ADMIN: address = @0xA1;
@@ -88,8 +87,8 @@ fun test_mint_nft(){
         let (_, token_id, metadata, owner) = nft_factory::get_nft_info(&nft);
 
         assert!(token_id == 1, 1);
-        assert!(owner == USER2, 2);
-        assert!(metadata == std::string::utf8(b"Test NFT Metadata"), 3);
+        assert!(owner == USER1, 2);
+        assert!(metadata == std::string::utf8(b"test nft meta data"), 3);
 
         test_scenario::return_to_sender(&scenario, nft);
 
@@ -105,9 +104,8 @@ fun test_transfer_nft(){
     // create collection and mint nft
     {
         nft_factory::create_collection(
-            b"{COLLECTION_NAME}".to_string(), 
+            std::string::utf8(COLLECTION_NAME), 
             std::string::utf8(COLLECTION_SYMBOL),
-             
              std::string::utf8(COLLECTION_DESCRIPTION), 
              MINT_FEE, 
              TOTAL_SUPPLY,
@@ -127,7 +125,7 @@ fun test_transfer_nft(){
     test_scenario::next_tx(&mut scenario, USER1);
     {
         let nft = test_scenario::take_from_sender<NFT>(&scenario);
-        nft_factory::transfer_nft(nft, USER2);
+        nft_factory::transfer_nft(nft, USER2, test_scenario::ctx(&mut scenario));
     };
 
     // verify transfer
@@ -177,4 +175,47 @@ fun test_burn_nft(){
     };
     test_scenario::end(scenario);
 
+}
+
+// test collection supply limit
+#[test]
+#[expected_failure(abort_code = 1005)]
+fun test_mint_exceed_supply(){
+    let mut scenario = test_scenario::begin(USER1);
+
+    // create collection with supply limit of i
+    {
+        nft_factory::create_collection(
+            std::string::utf8(COLLECTION_NAME), 
+            std::string::utf8(COLLECTION_SYMBOL), 
+            std::string::utf8(COLLECTION_DESCRIPTION), 
+            MINT_FEE, 
+            1, 
+            test_scenario::ctx(&mut scenario)
+            );
+    };
+    // mint first nft (should succeed)
+    test_scenario::next_tx(&mut scenario, USER1);
+    {
+        let mut collection = test_scenario::take_from_sender<Collection>(&scenario);
+        nft_factory::mint_nft(
+            &mut collection, 
+            std::string::utf8(b"nft 1"), 
+            test_scenario::ctx(&mut scenario)
+            );
+            test_scenario::return_to_sender(&scenario, collection);
+    };
+
+    // try to mint the second time it should fail due to total_supply is set to 1 for the collection
+    test_scenario::next_tx(&mut scenario, USER1);
+    {
+        let mut collection = test_scenario::take_from_sender<Collection>(&scenario);
+        nft_factory::mint_nft(
+            &mut collection, 
+            std::string::utf8(b"nft 2"), 
+            test_scenario::ctx(&mut scenario)
+        );
+        test_scenario::return_to_sender(&scenario, collection);
+    };
+    test_scenario::end(scenario);
 }
