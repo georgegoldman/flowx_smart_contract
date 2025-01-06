@@ -2,7 +2,8 @@
 module flowx_smart_contract::liquidity_pool_tests;
 
 use sui::test_scenario::{Self, Scenario};
-use sui::coin::{Self, Coin};
+use sui::coin;
+use sui::balance;
 use sui::test_utils::assert_eq;
 use flowx_smart_contract::liquidity_pool::{Self, LiquidityPool};
 
@@ -67,7 +68,178 @@ fun test_swap(){
         // get ctx first 
         let ctx = test_scenario::ctx(test);
         // Create initial pool with USDT and USDC
-        let coins = vector::empty();
+        let mut coins = vector::empty();
         let initial_coin = coin::mint_for_testing<USDT>(2000000, ctx);
-    }
+        let balance = coin::into_balance(initial_coin);
+        vector::push_back(&mut coins, balance);
+
+        let initial_rates = vector[1000000];
+        let initial_fees = vector[30];
+        let symbols = vector[std::string::utf8(b"USDT")];
+
+        liquidity_pool::create_lp(
+            ctx, 
+            &mut coins, 
+            initial_rates, 
+            initial_fees, 
+            2, 
+            symbols
+            );
+
+            coins.destroy_empty();
+
+    };
+    // Test adding new asset
+    test_scenario::next_tx(test, ADMIN);
+    {
+        let mut pool = test_scenario::take_shared<LiquidityPool<USDT>>(test);
+        // get ctx
+        let ctx = test_scenario::ctx(test);
+        let new_coin = coin::mint_for_testing<USDT>(500000, ctx);
+
+        liquidity_pool::add_asset(
+            &mut pool, 
+            ctx, 
+            std::string::utf8(b"DAI"), 
+            std::string::utf8(b"Dai Stablecoin"), 
+            18, 
+            coin::into_balance(new_coin), 
+            1000000, // 1:1 rate
+            30 //0.3% fee
+            );
+
+            // Verify the asset was added
+            assert!(liquidity_pool::contain_asset(&pool, std::string::utf8(b"DAI")), 0);
+
+
+            test_scenario::return_shared(pool)
+    };
+    test_scenario::end(scenario);
+}
+
+#[test]
+fun test_remove_asset(){
+    let mut scenario = setup();
+    let test = &mut scenario;
+
+    // setup pool with multiple assets
+    test_scenario::next_tx(test, ADMIN);
+    {
+        // Initial setup similar to add_asset test...
+        let ctx = test_scenario::ctx(test);
+        let initial_coin = coin::mint_for_testing<USDT>(1000000, ctx);
+        let mut coins = vector[coin::into_balance(initial_coin)];
+        let initial_rates = vector[1000000];
+        let initial_fees = vector[30];
+        let symbols = vector[std::string::utf8(b"USDT")];
+        
+        liquidity_pool::create_lp(
+            ctx,
+            &mut coins,
+            initial_rates,
+            initial_fees,
+            2,
+            symbols
+        );
+        coins.destroy_empty();
+    };
+    // Add asset to remove later
+    test_scenario::next_tx(test, ADMIN);
+    {
+        let mut pool = test_scenario::take_shared<LiquidityPool<USDT>>(test);
+        let ctx = test_scenario::ctx(test);
+        let new_coin = coin::mint_for_testing<USDT>(500000, ctx);
+
+        liquidity_pool::add_asset(
+                &mut pool,
+                ctx,
+                std::string::utf8(b"DAI"),
+                std::string::utf8(b"Dai Stablecoin"),
+                18,
+                coin::into_balance(new_coin),
+                1000000,
+                30
+            );
+
+            test_scenario::return_shared(pool);
+    };
+
+
+    // Test removing asset
+    test_scenario::next_tx(test, ADMIN);
+
+    {
+    let mut pool = test_scenario::take_shared<LiquidityPool<USDT>>(test);
+    let ctx = test_scenario::ctx(test);
+    let removed_balance = liquidity_pool::remove_asset(
+        &mut pool, 
+        ctx, 
+        std::string::utf8(b"DAI")
+        );
+
+        // Verify balance amount
+        assert_eq(balance::value(&removed_balance), 500000);
+
+        // Verify asset was removed
+        assert!(!liquidity_pool::contain_asset(&pool, std::string::utf8(b"DAI")), 0);
+
+        // clean up
+        let coin = coin::from_balance(removed_balance, ctx);
+        coin::burn_for_testing(coin);
+
+        test_scenario::return_shared(pool);
+    };
+
+    test_scenario::end(scenario);
+}
+
+#[test]
+#[expected_failure(abort_code = liquidity_pool::ERROR_UNAUTHORIZED)]
+fun test_unauthorized_add_asset(){
+    let mut scenario = setup();
+    let test = &mut scenario;
+
+    // setup pool
+    test_scenario::next_tx(test, ADMIN);
+    {
+        let ctx = test_scenario::ctx(test);
+        let initial_coin = coin::mint_for_testing<USDT>(1000000, ctx);
+        let mut coins = vector[coin::into_balance(initial_coin)];
+        let initial_rates = vector[1000000];
+        let initial_fees = vector[30];
+        let symbols = vector[std::string::utf8(b"USDT")];
+
+        liquidity_pool::create_lp(
+                ctx,
+                &mut coins,
+                initial_rates,
+                initial_fees,
+                2,
+                symbols
+            );
+
+        coins.destroy_empty();
+    };
+    // Try to add asset as non-admin user (should fail)
+    test_scenario::next_tx(test,    ADMIN);
+
+    {
+        let mut pool = test_scenario::take_shared<LiquidityPool<USDT>>(test);
+        let ctx = test_scenario::ctx(test);
+        let new_coin = coin::mint_for_testing<USDT>(500000, ctx);
+        
+        liquidity_pool::add_asset(
+            &mut pool,
+            ctx,
+            std::string::utf8(b"DAI"),
+            std::string::utf8(b"Dai Stablecoin"),
+            18,
+            coin::into_balance(new_coin),
+            1000000,
+            30
+        );
+
+        test_scenario::return_shared(pool);
+    };
+    test_scenario::end(scenario);
 }
