@@ -12,7 +12,7 @@ public struct USDT has drop {}
 
 // test address
 const ADMIN: address = @0xA;
-const USER: address = @0xB;
+// const USER: address = @0xB;
 
 fun setup(): Scenario{
     test_scenario::begin(ADMIN)
